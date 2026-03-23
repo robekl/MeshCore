@@ -352,7 +352,7 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
     }
 
     MESH_DEBUG_PRINTLN("Login success!");
-    client->last_timestamp = sender_timestamp;
+    // Login replay protection is handled at the mesh layer; keep message timestamps on the app clock.
     client->last_activity = getRTCClock()->getCurrentTime();
     client->permissions |= PERM_ACL_ADMIN;
     memcpy(client->shared_secret, secret, PUB_KEY_SIZE);

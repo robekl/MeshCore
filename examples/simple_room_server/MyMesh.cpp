@@ -327,7 +327,7 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
       }
 
       MESH_DEBUG_PRINTLN("Login success!");
-      client->last_timestamp = sender_timestamp;
+      // Login replay protection is handled at the mesh layer; keep message timestamps on the app clock.
       client->extra.room.sync_since = sender_sync_since;
       client->extra.room.pending_ack = 0;
       client->extra.room.push_failures = 0;
