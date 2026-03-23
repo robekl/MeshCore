@@ -7,12 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-on-proxmox:
-    runs-on: [self-hosted, proxmox, meshcore, pve7600]
+  build-in-container:
+    runs-on: [self-hosted, meshcore, ct141, release-builds]
     timeout-minutes: 720
 
     steps:
-      - name: Run release build on self-hosted runner
+      - name: Run release build in container runner
         shell: bash
         run: |
           set -euxo pipefail
