@@ -8,18 +8,12 @@ on:
 
 jobs:
   build-on-proxmox:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, proxmox, meshcore, pve7600]
     timeout-minutes: 720
 
     steps:
-      - name: Trigger remote build on Proxmox container
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.MESHCORE_BUILD_HOST }}
-          username: ${{ secrets.MESHCORE_BUILD_USER }}
-          key: ${{ secrets.MESHCORE_BUILD_SSH_KEY }}
-          script_stop: true
-          command_timeout: 12h
-          script: |
-            set -euxo pipefail
-            /home/builder/meshcore-build-release.sh 1.14.1-robekl 1.14.1 1.14.1-robekl
+      - name: Run release build on self-hosted runner
+        shell: bash
+        run: |
+          set -euxo pipefail
+          /home/builder/meshcore-build-release.sh 1.14.1-robekl 1.14.1 1.14.1-robekl
