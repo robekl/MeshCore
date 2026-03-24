@@ -900,6 +900,7 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.flood_advert_interval = 12; // 12 hours
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0; // disabled
+  _prefs.agc_reset_interval = 15;    // 60 seconds
 
   // bridge defaults
   _prefs.bridge_enabled = 1;    // enabled

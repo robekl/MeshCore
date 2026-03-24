@@ -733,6 +733,7 @@ SensorMesh::SensorMesh(mesh::MainBoard& board, mesh::Radio& radio, mesh::Millise
   _prefs.disable_fwd = true;
   _prefs.flood_max = 64;
   _prefs.interference_threshold = 0;  // disabled
+  _prefs.agc_reset_interval = 15;     // 60 seconds
 
   // GPS defaults
   _prefs.gps_enabled = 0;
