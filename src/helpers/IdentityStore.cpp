@@ -33,8 +33,14 @@ bool IdentityStore::load(const char *name, mesh::LocalIdentity& id, char display
 
       int n = max_name_sz;   // up to 32 bytes
       if (n > 32) n = 32;
-      file.read((uint8_t *) display_name, n);
-      display_name[n - 1] = 0;  // ensure null terminator
+      if (n > 0) {
+        char tmp[32];
+        loaded = loaded && file.read((uint8_t *) tmp, n) == n;
+        if (loaded) {
+          memcpy(display_name, tmp, n);
+          display_name[n - 1] = 0;  // ensure null terminator
+        }
+      }
 
       file.close();
     }
@@ -57,8 +63,11 @@ bool IdentityStore::save(const char *name, const mesh::LocalIdentity& id) {
   if (file) {
     bool success = id.writeTo(file);
     file.close();
+    if (!success) {
+      _fs->remove(filename);
+    }
     MESH_DEBUG_PRINTLN("IdentityStore::save() write - %s", success ? "OK" : "Err");
-    return true;
+    return success;
   }
   MESH_DEBUG_PRINTLN("IdentityStore::save() failed");
   return false;
@@ -77,17 +86,20 @@ bool IdentityStore::save(const char *name, const mesh::LocalIdentity& id, const 
   File file = _fs->open(filename, "w", true);
 #endif
   if (file) {
-    id.writeTo(file);
+    bool success = id.writeTo(file);
 
     uint8_t tmp[32];
     memset(tmp, 0, sizeof(tmp));
     int n = strlen(display_name);
     if (n > sizeof(tmp)-1) n = sizeof(tmp)-1;
     memcpy(tmp, display_name, n);
-    file.write(tmp, sizeof(tmp));
+    success = success && file.write(tmp, sizeof(tmp)) == sizeof(tmp);
 
     file.close();
-    return true;
+    if (!success) {
+      _fs->remove(filename);
+    }
+    return success;
   }
   return false;
 }

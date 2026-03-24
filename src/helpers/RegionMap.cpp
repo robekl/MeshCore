@@ -69,50 +69,65 @@ static File openWrite(FILESYSTEM* _fs, const char* filename) {
 }
 
 bool RegionMap::load(FILESYSTEM* _fs, const char* path) {
-  if (_fs->exists(path ? path : "/regions2")) {
+  const char* filename = path ? path : "/regions2";
+  if (_fs->exists(filename)) {
   #if defined(RP2040_PLATFORM)
-    File file = _fs->open(path ? path : "/regions2", "r");
+    File file = _fs->open(filename, "r");
   #else
-    File file = _fs->open(path ? path : "/regions2");
+    File file = _fs->open(filename);
   #endif
 
     if (file) {
       uint8_t pad[128];
-
-      num_regions = 0; next_id = 1; home_id = 0;
+      RegionEntry loaded_regions[MAX_REGION_ENTRIES];
+      int loaded_num_regions = 0;
+      uint16_t loaded_next_id = 1;
+      uint16_t loaded_home_id = 0;
+      uint8_t loaded_wildcard_flags = wildcard.flags;
 
       bool success = file.read(pad, 5) == 5;  // reserved header
-      success = success && file.read((uint8_t *) &home_id, sizeof(home_id)) == sizeof(home_id);
-      success = success && file.read((uint8_t *) &wildcard.flags, sizeof(wildcard.flags)) == sizeof(wildcard.flags);
-      success = success && file.read((uint8_t *) &next_id, sizeof(next_id)) == sizeof(next_id);
+      success = success && file.read((uint8_t *) &loaded_home_id, sizeof(loaded_home_id)) == sizeof(loaded_home_id);
+      success = success && file.read((uint8_t *) &loaded_wildcard_flags, sizeof(loaded_wildcard_flags)) == sizeof(loaded_wildcard_flags);
+      success = success && file.read((uint8_t *) &loaded_next_id, sizeof(loaded_next_id)) == sizeof(loaded_next_id);
 
       if (success) {
-        while (num_regions < MAX_REGION_ENTRIES) {
-          auto r = &regions[num_regions];
+        while (loaded_num_regions < MAX_REGION_ENTRIES) {
+          auto r = &loaded_regions[loaded_num_regions];
 
-          success = file.read((uint8_t *) &r->id, sizeof(r->id)) == sizeof(r->id);
+          int entry_bytes = file.read((uint8_t *) &r->id, sizeof(r->id));
+          if (entry_bytes == 0) break;   // EOF after the final full record
+
+          success = entry_bytes == sizeof(r->id);
           success = success && file.read((uint8_t *) &r->parent, sizeof(r->parent)) == sizeof(r->parent);
           success = success && file.read((uint8_t *) r->name, sizeof(r->name)) == sizeof(r->name);
           success = success && file.read((uint8_t *) &r->flags, sizeof(r->flags)) == sizeof(r->flags);
           success = success && file.read(pad, sizeof(pad)) == sizeof(pad);
 
-          if (!success) break; // EOF
+          if (!success) break;
 
-          if (r->id >= next_id) {    // make sure next_id is valid
-            next_id = r->id + 1;
+          if (r->id >= loaded_next_id) {    // make sure next_id is valid
+            loaded_next_id = r->id + 1;
           }
-          num_regions++;
+          loaded_num_regions++;
         }
       }
       file.close();
-      return true;
+      if (success) {
+        num_regions = loaded_num_regions;
+        next_id = loaded_next_id;
+        home_id = loaded_home_id;
+        wildcard.flags = loaded_wildcard_flags;
+        memcpy(regions, loaded_regions, sizeof(RegionEntry) * loaded_num_regions);
+      }
+      return success;
     }
   }
   return false;  // failed
 }
 
 bool RegionMap::save(FILESYSTEM* _fs, const char* path) {
-  File file = openWrite(_fs, path ? path : "/regions2");
+  const char* filename = path ? path : "/regions2";
+  File file = openWrite(_fs, filename);
   if (file) {
     uint8_t pad[128];
     memset(pad, 0, sizeof(pad));
@@ -135,7 +150,10 @@ bool RegionMap::save(FILESYSTEM* _fs, const char* path) {
       }
     }
     file.close();
-    return true;
+    if (!success) {
+      _fs->remove(filename);
+    }
+    return success;
   }
   return false;  // failed
 }
