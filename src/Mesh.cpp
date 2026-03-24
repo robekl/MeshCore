@@ -10,7 +10,7 @@ bool hasPayloadBytes(const Packet* pkt, size_t needed) {
 }
 
 void logIncompletePacket(const char* func, const char* kind) {
-  MESH_DEBUG_PRINTLN("%s %s: incomplete %s packet", getLogDateTime(), func, kind);
+  MESH_DEBUG_PRINTLN("%s: incomplete %s packet", func, kind);
 }
 
 }
