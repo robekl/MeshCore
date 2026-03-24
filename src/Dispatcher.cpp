@@ -148,6 +148,11 @@ void Dispatcher::loop() {
 bool Dispatcher::tryParsePacket(Packet* pkt, const uint8_t* raw, int len) {
   int i = 0;
 
+  if (len < 2) {
+    MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): partial or corrupt packet received, len=%d", getLogDateTime(), len);
+    return false;
+  }
+
   pkt->header = raw[i++];
   if (pkt->getPayloadVer() > PAYLOAD_VER_1) {
     MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): unsupported packet version", getLogDateTime());
@@ -155,10 +160,19 @@ bool Dispatcher::tryParsePacket(Packet* pkt, const uint8_t* raw, int len) {
   }
 
   if (pkt->hasTransportCodes()) {
+    if (i + 4 >= len) {
+      MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): partial or corrupt packet received, len=%d", getLogDateTime(), len);
+      return false;
+    }
     memcpy(&pkt->transport_codes[0], &raw[i], 2); i += 2;
     memcpy(&pkt->transport_codes[1], &raw[i], 2); i += 2;
   } else {
     pkt->transport_codes[0] = pkt->transport_codes[1] = 0;
+  }
+
+  if (i >= len) {
+    MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): partial or corrupt packet received, len=%d", getLogDateTime(), len);
+    return false;
   }
 
   pkt->path_len = raw[i++];
@@ -229,7 +243,11 @@ void Dispatcher::checkRecv() {
 
     if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ
         || pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
-      Serial.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+      if (pkt->payload_len >= 2) {
+        Serial.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+      } else {
+        Serial.printf(" [incomplete data payload]\n");
+      }
     } else {
       Serial.printf("\n");
     }

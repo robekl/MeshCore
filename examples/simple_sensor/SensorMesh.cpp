@@ -173,7 +173,7 @@ static uint8_t putFloat(uint8_t * dest, float value, uint8_t size, uint32_t mult
 uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint8_t req_type, uint8_t* payload, size_t payload_len) {
   memcpy(reply_data, &sender_timestamp, 4);   // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
-  if (req_type == REQ_TYPE_GET_TELEMETRY_DATA) {  // allow all
+  if (req_type == REQ_TYPE_GET_TELEMETRY_DATA && payload_len >= 1) {  // allow all
     uint8_t perm_mask = ~(payload[0]);    // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
 
     telemetry.reset();
@@ -186,7 +186,8 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen;  // reply_len
   }
-  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && (perms & PERM_ACL_ROLE_MASK) >= PERM_ACL_READ_ONLY) {
+  if (req_type == REQ_TYPE_GET_AVG_MIN_MAX && payload_len >= 10
+      && (perms & PERM_ACL_ROLE_MASK) >= PERM_ACL_READ_ONLY) {
     uint32_t start_secs_ago, end_secs_ago;
     memcpy(&start_secs_ago, &payload[0], 4);
     memcpy(&end_secs_ago, &payload[4], 4);
@@ -220,7 +221,8 @@ uint8_t SensorMesh::handleRequest(uint8_t perms, uint32_t sender_timestamp, uint
     }
     return ofs;
   }
-  if (req_type == REQ_TYPE_GET_ACCESS_LIST && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN) {
+  if (req_type == REQ_TYPE_GET_ACCESS_LIST && payload_len >= 2
+      && (perms & PERM_ACL_ROLE_MASK) == PERM_ACL_ADMIN) {
     uint8_t res1 = payload[0];   // reserved for future  (extra query params)
     uint8_t res2 = payload[1];
     if (res1 == 0 && res2 == 0) {
@@ -626,6 +628,11 @@ bool SensorMesh::handleIncomingMsg(ClientInfo& from, uint32_t timestamp, uint8_t
 #define CTL_TYPE_NODE_DISCOVER_RESP  0x90
 
 void SensorMesh::onControlDataRecv(mesh::Packet* packet) {
+  if (packet->payload_len < 1) {
+    MESH_DEBUG_PRINTLN("onControlDataRecv: packet too short: %d", (uint32_t)packet->payload_len);
+    return;
+  }
+
   uint8_t type = packet->payload[0] & 0xF0;    // just test upper 4 bits
   if (type == CTL_TYPE_NODE_DISCOVER_REQ && packet->payload_len >= 6) {
     // TODO: apply rate limiting to these!

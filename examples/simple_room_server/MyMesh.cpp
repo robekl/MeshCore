@@ -137,6 +137,8 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
   // memcpy(reply_data, &now, 4);   // response packets always prefixed with timestamp
   memcpy(reply_data, &sender_timestamp, 4); // reflect sender_timestamp back in response packet (kind of like a 'tag')
 
+  if (payload_len < 1) return 0;
+
   if (payload[0] == REQ_TYPE_GET_STATUS) {
     ServerStats stats;
     stats.batt_milli_volts = board.getBattMilliVolts();
@@ -161,7 +163,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     memcpy(&reply_data[4], &stats, sizeof(stats));
     return 4 + sizeof(stats);
   }
-  if (payload[0] == REQ_TYPE_GET_TELEMETRY_DATA) {
+  if (payload[0] == REQ_TYPE_GET_TELEMETRY_DATA && payload_len >= 2) {
     uint8_t perm_mask = ~(payload[1]); // NEW: first reserved byte (of 4), is now inverse mask to apply to permissions
 
     telemetry.reset();
@@ -182,7 +184,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     memcpy(&reply_data[4], telemetry.getBuffer(), tlen);
     return 4 + tlen; // reply_len
   }
-  if (payload[0] == REQ_TYPE_GET_ACCESS_LIST && sender->isAdmin()) {
+  if (payload[0] == REQ_TYPE_GET_ACCESS_LIST && payload_len >= 3 && sender->isAdmin()) {
     uint8_t res1 = payload[1];   // reserved for future  (extra query params)
     uint8_t res2 = payload[2];
     if (res1 == 0 && res2 == 0) {
@@ -219,7 +221,11 @@ void MyMesh::logRx(mesh::Packet *pkt, int len, float score) {
 
       if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ ||
           pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
-        f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        if (pkt->payload_len >= 2) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf(" [incomplete data payload]\n");
+        }
       } else {
         f.printf("\n");
       }
@@ -237,7 +243,11 @@ void MyMesh::logTx(mesh::Packet *pkt, int len) {
 
       if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH || pkt->getPayloadType() == PAYLOAD_TYPE_REQ ||
           pkt->getPayloadType() == PAYLOAD_TYPE_RESPONSE || pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG) {
-        f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        if (pkt->payload_len >= 2) {
+          f.printf(" [%02X -> %02X]\n", (uint32_t)pkt->payload[1], (uint32_t)pkt->payload[0]);
+        } else {
+          f.printf(" [incomplete data payload]\n");
+        }
       } else {
         f.printf("\n");
       }
