@@ -281,7 +281,7 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
       return ofs;
     }
   }
-  if (payload[0] == REQ_TYPE_GET_NEIGHBOURS && payload_len >= 4) {
+  if (payload[0] == REQ_TYPE_GET_NEIGHBOURS && payload_len >= 7) {
     uint8_t request_version = payload[1];
     if (request_version == 0) {
 
