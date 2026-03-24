@@ -115,12 +115,15 @@ int RadioLibWrapper::recvRaw(uint8_t* bytes, int sz) {
       int err = _radio->readData(bytes, len);
       if (err != RADIOLIB_ERR_NONE) {
         MESH_DEBUG_PRINTLN("RadioLibWrapper: error: readData(%d)", err);
+        idle();
         len = 0;
         n_recv_errors++;
       } else {
       //  Serial.print("  readData() -> "); Serial.println(len);
         n_recv++;
       }
+    } else {
+      idle();
     }
     state = STATE_IDLE;   // need another startReceive()
   }
@@ -192,7 +195,7 @@ static float snr_threshold[] = {
 };
   
 float RadioLibWrapper::packetScoreInt(float snr, int sf, int packet_len) {
-  if (sf < 7) return 0.0f;
+  if (sf < 7 || sf > 12) return 0.0f;
   
   if (snr < snr_threshold[sf - 7]) return 0.0f;    // Below threshold, no chance of success
 
