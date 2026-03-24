@@ -22,6 +22,14 @@ static bool isValidName(const char *n) {
   return true;
 }
 
+static bool readExact(File& file, void* dest, size_t len) {
+  return file.read((uint8_t*)dest, len) == (int)len;
+}
+
+static bool writeExact(File& file, const void* src, size_t len) {
+  return file.write((const uint8_t*)src, len) == len;
+}
+
 void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   if (fs->exists("/com_prefs")) {
     loadPrefsInt(fs, "/com_prefs");   // new filename
@@ -40,80 +48,89 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
 #endif
   if (file) {
     uint8_t pad[8];
+    auto loaded = *_prefs;
 
-    file.read((uint8_t *)&_prefs->airtime_factor, sizeof(_prefs->airtime_factor));    // 0
-    file.read((uint8_t *)&_prefs->node_name, sizeof(_prefs->node_name));              // 4
-    file.read(pad, 4);                                                                // 36
-    file.read((uint8_t *)&_prefs->node_lat, sizeof(_prefs->node_lat));                // 40
-    file.read((uint8_t *)&_prefs->node_lon, sizeof(_prefs->node_lon));                // 48
-    file.read((uint8_t *)&_prefs->password[0], sizeof(_prefs->password));             // 56
-    file.read((uint8_t *)&_prefs->freq, sizeof(_prefs->freq));                        // 72
-    file.read((uint8_t *)&_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));        // 76
-    file.read((uint8_t *)&_prefs->disable_fwd, sizeof(_prefs->disable_fwd));          // 77
-    file.read((uint8_t *)&_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-    file.read((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));  // 79
-    file.read((uint8_t *)&_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));      // 80
-    file.read((uint8_t *)&_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
-    file.read((uint8_t *)&_prefs->guest_password[0], sizeof(_prefs->guest_password)); // 88
-    file.read((uint8_t *)&_prefs->direct_tx_delay_factor, sizeof(_prefs->direct_tx_delay_factor)); // 104
-    file.read(pad, 4); // 108 : 4 bytes unused
-    file.read((uint8_t *)&_prefs->sf, sizeof(_prefs->sf));                                         // 112
-    file.read((uint8_t *)&_prefs->cr, sizeof(_prefs->cr));                                         // 113
-    file.read((uint8_t *)&_prefs->allow_read_only, sizeof(_prefs->allow_read_only));               // 114
-    file.read((uint8_t *)&_prefs->multi_acks, sizeof(_prefs->multi_acks));                         // 115
-    file.read((uint8_t *)&_prefs->bw, sizeof(_prefs->bw));                                         // 116
-    file.read((uint8_t *)&_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));         // 120
-    file.read((uint8_t *)&_prefs->path_hash_mode, sizeof(_prefs->path_hash_mode));                 // 121
-    file.read((uint8_t *)&_prefs->loop_detect, sizeof(_prefs->loop_detect));                       // 122
-    file.read(pad, 1);                                                                             // 123
-    file.read((uint8_t *)&_prefs->flood_max, sizeof(_prefs->flood_max));                           // 124
-    file.read((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
-    file.read((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
-    file.read((uint8_t *)&_prefs->bridge_enabled, sizeof(_prefs->bridge_enabled));                 // 127
-    file.read((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
-    file.read((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
-    file.read((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
-    file.read((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 135
-    file.read((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 136
-    file.read((uint8_t *)&_prefs->powersaving_enabled, sizeof(_prefs->powersaving_enabled));       // 152
-    file.read(pad, 3);                                                                             // 153
-    file.read((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
-    file.read((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
-    file.read((uint8_t *)&_prefs->advert_loc_policy, sizeof (_prefs->advert_loc_policy));          // 161
-    file.read((uint8_t *)&_prefs->discovery_mod_timestamp, sizeof(_prefs->discovery_mod_timestamp)); // 162
-    file.read((uint8_t *)&_prefs->adc_multiplier, sizeof(_prefs->adc_multiplier));                 // 166
-    file.read((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
+    bool success = readExact(file, &loaded.airtime_factor, sizeof(loaded.airtime_factor));    // 0
+    success = success && readExact(file, loaded.node_name, sizeof(loaded.node_name));              // 4
+    success = success && readExact(file, pad, 4);                                                                // 36
+    success = success && readExact(file, &loaded.node_lat, sizeof(loaded.node_lat));                // 40
+    success = success && readExact(file, &loaded.node_lon, sizeof(loaded.node_lon));                // 48
+    success = success && readExact(file, &loaded.password[0], sizeof(loaded.password));             // 56
+    success = success && readExact(file, &loaded.freq, sizeof(loaded.freq));                        // 72
+    success = success && readExact(file, &loaded.tx_power_dbm, sizeof(loaded.tx_power_dbm));        // 76
+    success = success && readExact(file, &loaded.disable_fwd, sizeof(loaded.disable_fwd));          // 77
+    success = success && readExact(file, &loaded.advert_interval, sizeof(loaded.advert_interval));  // 78
+    success = success && readExact(file, &loaded.rx_boosted_gain, sizeof(loaded.rx_boosted_gain));  // 79
+    success = success && readExact(file, &loaded.rx_delay_base, sizeof(loaded.rx_delay_base));      // 80
+    success = success && readExact(file, &loaded.tx_delay_factor, sizeof(loaded.tx_delay_factor));  // 84
+    success = success && readExact(file, &loaded.guest_password[0], sizeof(loaded.guest_password)); // 88
+    success = success && readExact(file, &loaded.direct_tx_delay_factor, sizeof(loaded.direct_tx_delay_factor)); // 104
+    success = success && readExact(file, pad, 4); // 108 : 4 bytes unused
+    success = success && readExact(file, &loaded.sf, sizeof(loaded.sf));                                         // 112
+    success = success && readExact(file, &loaded.cr, sizeof(loaded.cr));                                         // 113
+    success = success && readExact(file, &loaded.allow_read_only, sizeof(loaded.allow_read_only));               // 114
+    success = success && readExact(file, &loaded.multi_acks, sizeof(loaded.multi_acks));                         // 115
+    success = success && readExact(file, &loaded.bw, sizeof(loaded.bw));                                         // 116
+    success = success && readExact(file, &loaded.agc_reset_interval, sizeof(loaded.agc_reset_interval));         // 120
+    success = success && readExact(file, &loaded.path_hash_mode, sizeof(loaded.path_hash_mode));                 // 121
+    success = success && readExact(file, &loaded.loop_detect, sizeof(loaded.loop_detect));                       // 122
+    success = success && readExact(file, pad, 1);                                                                             // 123
+    success = success && readExact(file, &loaded.flood_max, sizeof(loaded.flood_max));                           // 124
+    success = success && readExact(file, &loaded.flood_advert_interval, sizeof(loaded.flood_advert_interval));   // 125
+    success = success && readExact(file, &loaded.interference_threshold, sizeof(loaded.interference_threshold)); // 126
+    success = success && readExact(file, &loaded.bridge_enabled, sizeof(loaded.bridge_enabled));                 // 127
+    success = success && readExact(file, &loaded.bridge_delay, sizeof(loaded.bridge_delay));                     // 128
+    success = success && readExact(file, &loaded.bridge_pkt_src, sizeof(loaded.bridge_pkt_src));                 // 130
+    success = success && readExact(file, &loaded.bridge_baud, sizeof(loaded.bridge_baud));                       // 131
+    success = success && readExact(file, &loaded.bridge_channel, sizeof(loaded.bridge_channel));                 // 135
+    success = success && readExact(file, &loaded.bridge_secret, sizeof(loaded.bridge_secret));                   // 136
+    success = success && readExact(file, &loaded.powersaving_enabled, sizeof(loaded.powersaving_enabled));       // 152
+    success = success && readExact(file, pad, 3);                                                                             // 153
+    success = success && readExact(file, &loaded.gps_enabled, sizeof(loaded.gps_enabled));                       // 156
+    success = success && readExact(file, &loaded.gps_interval, sizeof(loaded.gps_interval));                     // 157
+    success = success && readExact(file, &loaded.advert_loc_policy, sizeof (loaded.advert_loc_policy));          // 161
+    success = success && readExact(file, &loaded.discovery_mod_timestamp, sizeof(loaded.discovery_mod_timestamp)); // 162
+    success = success && readExact(file, &loaded.adc_multiplier, sizeof(loaded.adc_multiplier));                 // 166
+    success = success && readExact(file, loaded.owner_info, sizeof(loaded.owner_info));                          // 170
     // next: 290
 
+    if (!success) {
+      file.close();
+      MESH_DEBUG_PRINTLN("CommonCLI::loadPrefsInt(): failed to read %s", filename);
+      return;
+    }
+
     // sanitise bad pref values
-    _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
-    _prefs->tx_delay_factor = constrain(_prefs->tx_delay_factor, 0, 2.0f);
-    _prefs->direct_tx_delay_factor = constrain(_prefs->direct_tx_delay_factor, 0, 2.0f);
-    _prefs->airtime_factor = constrain(_prefs->airtime_factor, 0, 9.0f);
-    _prefs->freq = constrain(_prefs->freq, 400.0f, 2500.0f);
-    _prefs->bw = constrain(_prefs->bw, 7.8f, 500.0f);
-    _prefs->sf = constrain(_prefs->sf, 5, 12);
-    _prefs->cr = constrain(_prefs->cr, 5, 8);
-    _prefs->multi_acks = constrain(_prefs->multi_acks, 0, 1);
-    _prefs->adc_multiplier = constrain(_prefs->adc_multiplier, 0.0f, 10.0f);
-    _prefs->path_hash_mode = constrain(_prefs->path_hash_mode, 0, 2);   // NOTE: mode 3 reserved for future
+    loaded.rx_delay_base = constrain(loaded.rx_delay_base, 0, 20.0f);
+    loaded.tx_delay_factor = constrain(loaded.tx_delay_factor, 0, 2.0f);
+    loaded.direct_tx_delay_factor = constrain(loaded.direct_tx_delay_factor, 0, 2.0f);
+    loaded.airtime_factor = constrain(loaded.airtime_factor, 0, 9.0f);
+    loaded.freq = constrain(loaded.freq, 400.0f, 2500.0f);
+    loaded.bw = constrain(loaded.bw, 7.8f, 500.0f);
+    loaded.sf = constrain(loaded.sf, 5, 12);
+    loaded.cr = constrain(loaded.cr, 5, 8);
+    loaded.multi_acks = constrain(loaded.multi_acks, 0, 1);
+    loaded.adc_multiplier = constrain(loaded.adc_multiplier, 0.0f, 10.0f);
+    loaded.path_hash_mode = constrain(loaded.path_hash_mode, 0, 2);   // NOTE: mode 3 reserved for future
 
     // sanitise bad bridge pref values
-    _prefs->bridge_enabled = constrain(_prefs->bridge_enabled, 0, 1);
-    _prefs->bridge_delay = constrain(_prefs->bridge_delay, 0, 10000);
-    _prefs->bridge_pkt_src = constrain(_prefs->bridge_pkt_src, 0, 1);
-    if (_prefs->bridge_baud == 0) {
-      _prefs->bridge_baud = 115200;
+    loaded.bridge_enabled = constrain(loaded.bridge_enabled, 0, 1);
+    loaded.bridge_delay = constrain(loaded.bridge_delay, 0, 10000);
+    loaded.bridge_pkt_src = constrain(loaded.bridge_pkt_src, 0, 1);
+    if (loaded.bridge_baud == 0) {
+      loaded.bridge_baud = 115200;
     }
-    _prefs->bridge_channel = constrain(_prefs->bridge_channel, 0, 14);
+    loaded.bridge_channel = constrain(loaded.bridge_channel, 0, 14);
 
-    _prefs->powersaving_enabled = constrain(_prefs->powersaving_enabled, 0, 1);
+    loaded.powersaving_enabled = constrain(loaded.powersaving_enabled, 0, 1);
 
-    _prefs->gps_enabled = constrain(_prefs->gps_enabled, 0, 1);
-    _prefs->advert_loc_policy = constrain(_prefs->advert_loc_policy, 0, 2);
+    loaded.gps_enabled = constrain(loaded.gps_enabled, 0, 1);
+    loaded.advert_loc_policy = constrain(loaded.advert_loc_policy, 0, 2);
 
     // sanitise settings
-    _prefs->rx_boosted_gain = constrain(_prefs->rx_boosted_gain, 0, 1); // boolean
+    loaded.rx_boosted_gain = constrain(loaded.rx_boosted_gain, 0, 1); // boolean
+
+    *_prefs = loaded;
 
     file.close();
   }
@@ -132,51 +149,55 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     uint8_t pad[8];
     memset(pad, 0, sizeof(pad));
 
-    file.write((uint8_t *)&_prefs->airtime_factor, sizeof(_prefs->airtime_factor));    // 0
-    file.write((uint8_t *)&_prefs->node_name, sizeof(_prefs->node_name));              // 4
-    file.write(pad, 4);                                                                // 36
-    file.write((uint8_t *)&_prefs->node_lat, sizeof(_prefs->node_lat));                // 40
-    file.write((uint8_t *)&_prefs->node_lon, sizeof(_prefs->node_lon));                // 48
-    file.write((uint8_t *)&_prefs->password[0], sizeof(_prefs->password));             // 56
-    file.write((uint8_t *)&_prefs->freq, sizeof(_prefs->freq));                        // 72
-    file.write((uint8_t *)&_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));        // 76
-    file.write((uint8_t *)&_prefs->disable_fwd, sizeof(_prefs->disable_fwd));          // 77
-    file.write((uint8_t *)&_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
-    file.write((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));  // 79
-    file.write((uint8_t *)&_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));      // 80
-    file.write((uint8_t *)&_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
-    file.write((uint8_t *)&_prefs->guest_password[0], sizeof(_prefs->guest_password)); // 88
-    file.write((uint8_t *)&_prefs->direct_tx_delay_factor, sizeof(_prefs->direct_tx_delay_factor)); // 104
-    file.write(pad, 4); // 108 : 4 byte unused
-    file.write((uint8_t *)&_prefs->sf, sizeof(_prefs->sf));                                         // 112
-    file.write((uint8_t *)&_prefs->cr, sizeof(_prefs->cr));                                         // 113
-    file.write((uint8_t *)&_prefs->allow_read_only, sizeof(_prefs->allow_read_only));               // 114
-    file.write((uint8_t *)&_prefs->multi_acks, sizeof(_prefs->multi_acks));                         // 115
-    file.write((uint8_t *)&_prefs->bw, sizeof(_prefs->bw));                                         // 116
-    file.write((uint8_t *)&_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));         // 120
-    file.write((uint8_t *)&_prefs->path_hash_mode, sizeof(_prefs->path_hash_mode));                 // 121
-    file.write((uint8_t *)&_prefs->loop_detect, sizeof(_prefs->loop_detect));                       // 122
-    file.write(pad, 1);                                                                             // 123
-    file.write((uint8_t *)&_prefs->flood_max, sizeof(_prefs->flood_max));                           // 124
-    file.write((uint8_t *)&_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
-    file.write((uint8_t *)&_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
-    file.write((uint8_t *)&_prefs->bridge_enabled, sizeof(_prefs->bridge_enabled));                 // 127
-    file.write((uint8_t *)&_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
-    file.write((uint8_t *)&_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
-    file.write((uint8_t *)&_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
-    file.write((uint8_t *)&_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 135
-    file.write((uint8_t *)&_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 136
-    file.write((uint8_t *)&_prefs->powersaving_enabled, sizeof(_prefs->powersaving_enabled));       // 152
-    file.write(pad, 3);                                                                             // 153
-    file.write((uint8_t *)&_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
-    file.write((uint8_t *)&_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
-    file.write((uint8_t *)&_prefs->advert_loc_policy, sizeof(_prefs->advert_loc_policy));           // 161
-    file.write((uint8_t *)&_prefs->discovery_mod_timestamp, sizeof(_prefs->discovery_mod_timestamp)); // 162
-    file.write((uint8_t *)&_prefs->adc_multiplier, sizeof(_prefs->adc_multiplier));                 // 166
-    file.write((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
+    bool success = writeExact(file, &_prefs->airtime_factor, sizeof(_prefs->airtime_factor));    // 0
+    success = success && writeExact(file, &_prefs->node_name, sizeof(_prefs->node_name));              // 4
+    success = success && writeExact(file, pad, 4);                                                                // 36
+    success = success && writeExact(file, &_prefs->node_lat, sizeof(_prefs->node_lat));                // 40
+    success = success && writeExact(file, &_prefs->node_lon, sizeof(_prefs->node_lon));                // 48
+    success = success && writeExact(file, &_prefs->password[0], sizeof(_prefs->password));             // 56
+    success = success && writeExact(file, &_prefs->freq, sizeof(_prefs->freq));                        // 72
+    success = success && writeExact(file, &_prefs->tx_power_dbm, sizeof(_prefs->tx_power_dbm));        // 76
+    success = success && writeExact(file, &_prefs->disable_fwd, sizeof(_prefs->disable_fwd));          // 77
+    success = success && writeExact(file, &_prefs->advert_interval, sizeof(_prefs->advert_interval));  // 78
+    success = success && writeExact(file, &_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));  // 79
+    success = success && writeExact(file, &_prefs->rx_delay_base, sizeof(_prefs->rx_delay_base));      // 80
+    success = success && writeExact(file, &_prefs->tx_delay_factor, sizeof(_prefs->tx_delay_factor));  // 84
+    success = success && writeExact(file, &_prefs->guest_password[0], sizeof(_prefs->guest_password)); // 88
+    success = success && writeExact(file, &_prefs->direct_tx_delay_factor, sizeof(_prefs->direct_tx_delay_factor)); // 104
+    success = success && writeExact(file, pad, 4); // 108 : 4 byte unused
+    success = success && writeExact(file, &_prefs->sf, sizeof(_prefs->sf));                                         // 112
+    success = success && writeExact(file, &_prefs->cr, sizeof(_prefs->cr));                                         // 113
+    success = success && writeExact(file, &_prefs->allow_read_only, sizeof(_prefs->allow_read_only));               // 114
+    success = success && writeExact(file, &_prefs->multi_acks, sizeof(_prefs->multi_acks));                         // 115
+    success = success && writeExact(file, &_prefs->bw, sizeof(_prefs->bw));                                         // 116
+    success = success && writeExact(file, &_prefs->agc_reset_interval, sizeof(_prefs->agc_reset_interval));         // 120
+    success = success && writeExact(file, &_prefs->path_hash_mode, sizeof(_prefs->path_hash_mode));                 // 121
+    success = success && writeExact(file, &_prefs->loop_detect, sizeof(_prefs->loop_detect));                       // 122
+    success = success && writeExact(file, pad, 1);                                                                             // 123
+    success = success && writeExact(file, &_prefs->flood_max, sizeof(_prefs->flood_max));                           // 124
+    success = success && writeExact(file, &_prefs->flood_advert_interval, sizeof(_prefs->flood_advert_interval));   // 125
+    success = success && writeExact(file, &_prefs->interference_threshold, sizeof(_prefs->interference_threshold)); // 126
+    success = success && writeExact(file, &_prefs->bridge_enabled, sizeof(_prefs->bridge_enabled));                 // 127
+    success = success && writeExact(file, &_prefs->bridge_delay, sizeof(_prefs->bridge_delay));                     // 128
+    success = success && writeExact(file, &_prefs->bridge_pkt_src, sizeof(_prefs->bridge_pkt_src));                 // 130
+    success = success && writeExact(file, &_prefs->bridge_baud, sizeof(_prefs->bridge_baud));                       // 131
+    success = success && writeExact(file, &_prefs->bridge_channel, sizeof(_prefs->bridge_channel));                 // 135
+    success = success && writeExact(file, &_prefs->bridge_secret, sizeof(_prefs->bridge_secret));                   // 136
+    success = success && writeExact(file, &_prefs->powersaving_enabled, sizeof(_prefs->powersaving_enabled));       // 152
+    success = success && writeExact(file, pad, 3);                                                                             // 153
+    success = success && writeExact(file, &_prefs->gps_enabled, sizeof(_prefs->gps_enabled));                       // 156
+    success = success && writeExact(file, &_prefs->gps_interval, sizeof(_prefs->gps_interval));                     // 157
+    success = success && writeExact(file, &_prefs->advert_loc_policy, sizeof(_prefs->advert_loc_policy));           // 161
+    success = success && writeExact(file, &_prefs->discovery_mod_timestamp, sizeof(_prefs->discovery_mod_timestamp)); // 162
+    success = success && writeExact(file, &_prefs->adc_multiplier, sizeof(_prefs->adc_multiplier));                 // 166
+    success = success && writeExact(file, _prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
     // next: 290
 
     file.close();
+    if (!success) {
+      fs->remove("/com_prefs");
+      MESH_DEBUG_PRINTLN("CommonCLI::savePrefs(): failed to write /com_prefs");
+    }
   }
 }
 

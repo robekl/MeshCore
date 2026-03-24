@@ -42,6 +42,14 @@ static File openWrite(FILESYSTEM* fs, const char* filename) {
 #endif
 }
 
+static bool readExact(File& file, void* dest, size_t len) {
+  return file.read((uint8_t*)dest, len) == (int)len;
+}
+
+static bool writeExact(File& file, const void* src, size_t len) {
+  return file.write((const uint8_t*)src, len) == len;
+}
+
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
   static uint32_t _ContactsChannelsTotalBlocks = 0;
 #endif
@@ -203,34 +211,47 @@ void DataStore::loadPrefsInt(const char *filename, NodePrefs& _prefs, double& no
   File file = openRead(_fs, filename);
   if (file) {
     uint8_t pad[8];
+    NodePrefs loaded = _prefs;
+    double loaded_lat = node_lat;
+    double loaded_lon = node_lon;
 
-    file.read((uint8_t *)&_prefs.airtime_factor, sizeof(float));                           // 0
-    file.read((uint8_t *)_prefs.node_name, sizeof(_prefs.node_name));                      // 4
-    file.read(pad, 4);                                                                     // 36
-    file.read((uint8_t *)&node_lat, sizeof(node_lat));                                     // 40
-    file.read((uint8_t *)&node_lon, sizeof(node_lon));                                     // 48
-    file.read((uint8_t *)&_prefs.freq, sizeof(_prefs.freq));                               // 56
-    file.read((uint8_t *)&_prefs.sf, sizeof(_prefs.sf));                                   // 60
-    file.read((uint8_t *)&_prefs.cr, sizeof(_prefs.cr));                                   // 61
-    file.read((uint8_t *)&_prefs.client_repeat, sizeof(_prefs.client_repeat));             // 62
-    file.read((uint8_t *)&_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts)); // 63
-    file.read((uint8_t *)&_prefs.bw, sizeof(_prefs.bw));                                   // 64
-    file.read((uint8_t *)&_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));               // 68
-    file.read((uint8_t *)&_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base)); // 69
-    file.read((uint8_t *)&_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));   // 70
-    file.read((uint8_t *)&_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));   // 71
-    file.read((uint8_t *)&_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));             // 72
-    file.read((uint8_t *)&_prefs.advert_loc_policy, sizeof(_prefs.advert_loc_policy));     // 76
-    file.read((uint8_t *)&_prefs.multi_acks, sizeof(_prefs.multi_acks));                   // 77
-    file.read((uint8_t *)&_prefs.path_hash_mode, sizeof(_prefs.path_hash_mode));           // 78
-    file.read(pad, 1);                                                                     // 79
-    file.read((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
-    file.read((uint8_t *)&_prefs.buzzer_quiet, sizeof(_prefs.buzzer_quiet));               // 84
-    file.read((uint8_t *)&_prefs.gps_enabled, sizeof(_prefs.gps_enabled));                 // 85
-    file.read((uint8_t *)&_prefs.gps_interval, sizeof(_prefs.gps_interval));               // 86
-    file.read((uint8_t *)&_prefs.autoadd_config, sizeof(_prefs.autoadd_config));           // 87
-    file.read((uint8_t *)&_prefs.autoadd_max_hops, sizeof(_prefs.autoadd_max_hops));       // 88
-    file.read((uint8_t *)&_prefs.rx_boosted_gain, sizeof(_prefs.rx_boosted_gain)); // 89
+    bool success = readExact(file, &loaded.airtime_factor, sizeof(float));                           // 0
+    success = success && readExact(file, loaded.node_name, sizeof(loaded.node_name));                      // 4
+    success = success && readExact(file, pad, 4);                                                                     // 36
+    success = success && readExact(file, &loaded_lat, sizeof(loaded_lat));                                     // 40
+    success = success && readExact(file, &loaded_lon, sizeof(loaded_lon));                                     // 48
+    success = success && readExact(file, &loaded.freq, sizeof(loaded.freq));                               // 56
+    success = success && readExact(file, &loaded.sf, sizeof(loaded.sf));                                   // 60
+    success = success && readExact(file, &loaded.cr, sizeof(loaded.cr));                                   // 61
+    success = success && readExact(file, &loaded.client_repeat, sizeof(loaded.client_repeat));             // 62
+    success = success && readExact(file, &loaded.manual_add_contacts, sizeof(loaded.manual_add_contacts)); // 63
+    success = success && readExact(file, &loaded.bw, sizeof(loaded.bw));                                   // 64
+    success = success && readExact(file, &loaded.tx_power_dbm, sizeof(loaded.tx_power_dbm));               // 68
+    success = success && readExact(file, &loaded.telemetry_mode_base, sizeof(loaded.telemetry_mode_base)); // 69
+    success = success && readExact(file, &loaded.telemetry_mode_loc, sizeof(loaded.telemetry_mode_loc));   // 70
+    success = success && readExact(file, &loaded.telemetry_mode_env, sizeof(loaded.telemetry_mode_env));   // 71
+    success = success && readExact(file, &loaded.rx_delay_base, sizeof(loaded.rx_delay_base));             // 72
+    success = success && readExact(file, &loaded.advert_loc_policy, sizeof(loaded.advert_loc_policy));     // 76
+    success = success && readExact(file, &loaded.multi_acks, sizeof(loaded.multi_acks));                   // 77
+    success = success && readExact(file, &loaded.path_hash_mode, sizeof(loaded.path_hash_mode));           // 78
+    success = success && readExact(file, pad, 1);                                                                     // 79
+    success = success && readExact(file, &loaded.ble_pin, sizeof(loaded.ble_pin));                         // 80
+    success = success && readExact(file, &loaded.buzzer_quiet, sizeof(loaded.buzzer_quiet));               // 84
+    success = success && readExact(file, &loaded.gps_enabled, sizeof(loaded.gps_enabled));                 // 85
+    success = success && readExact(file, &loaded.gps_interval, sizeof(loaded.gps_interval));               // 86
+    success = success && readExact(file, &loaded.autoadd_config, sizeof(loaded.autoadd_config));           // 87
+    success = success && readExact(file, &loaded.autoadd_max_hops, sizeof(loaded.autoadd_max_hops));       // 88
+    success = success && readExact(file, &loaded.rx_boosted_gain, sizeof(loaded.rx_boosted_gain)); // 89
+
+    if (!success) {
+      file.close();
+      MESH_DEBUG_PRINTLN("DataStore::loadPrefsInt(): failed to read %s", filename);
+      return;
+    }
+
+    _prefs = loaded;
+    node_lat = loaded_lat;
+    node_lon = loaded_lon;
 
     file.close();
   }
@@ -242,35 +263,39 @@ void DataStore::savePrefs(const NodePrefs& _prefs, double node_lat, double node_
     uint8_t pad[8];
     memset(pad, 0, sizeof(pad));
 
-    file.write((uint8_t *)&_prefs.airtime_factor, sizeof(float));                           // 0
-    file.write((uint8_t *)_prefs.node_name, sizeof(_prefs.node_name));                      // 4
-    file.write(pad, 4);                                                                     // 36
-    file.write((uint8_t *)&node_lat, sizeof(node_lat));                                     // 40
-    file.write((uint8_t *)&node_lon, sizeof(node_lon));                                     // 48
-    file.write((uint8_t *)&_prefs.freq, sizeof(_prefs.freq));                               // 56
-    file.write((uint8_t *)&_prefs.sf, sizeof(_prefs.sf));                                   // 60
-    file.write((uint8_t *)&_prefs.cr, sizeof(_prefs.cr));                                   // 61
-    file.write((uint8_t *)&_prefs.client_repeat, sizeof(_prefs.client_repeat));             // 62
-    file.write((uint8_t *)&_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts)); // 63
-    file.write((uint8_t *)&_prefs.bw, sizeof(_prefs.bw));                                   // 64
-    file.write((uint8_t *)&_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));               // 68
-    file.write((uint8_t *)&_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base)); // 69
-    file.write((uint8_t *)&_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));   // 70
-    file.write((uint8_t *)&_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));   // 71
-    file.write((uint8_t *)&_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));             // 72
-    file.write((uint8_t *)&_prefs.advert_loc_policy, sizeof(_prefs.advert_loc_policy));     // 76
-    file.write((uint8_t *)&_prefs.multi_acks, sizeof(_prefs.multi_acks));                   // 77
-    file.write((uint8_t *)&_prefs.path_hash_mode, sizeof(_prefs.path_hash_mode));           // 78
-    file.write(pad, 1);                                                                     // 79
-    file.write((uint8_t *)&_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
-    file.write((uint8_t *)&_prefs.buzzer_quiet, sizeof(_prefs.buzzer_quiet));               // 84
-    file.write((uint8_t *)&_prefs.gps_enabled, sizeof(_prefs.gps_enabled));                 // 85
-    file.write((uint8_t *)&_prefs.gps_interval, sizeof(_prefs.gps_interval));               // 86
-    file.write((uint8_t *)&_prefs.autoadd_config, sizeof(_prefs.autoadd_config));           // 87
-    file.write((uint8_t *)&_prefs.autoadd_max_hops, sizeof(_prefs.autoadd_max_hops));       // 88
-    file.write((uint8_t *)&_prefs.rx_boosted_gain, sizeof(_prefs.rx_boosted_gain)); // 89
+    bool success = writeExact(file, &_prefs.airtime_factor, sizeof(float));                           // 0
+    success = success && writeExact(file, _prefs.node_name, sizeof(_prefs.node_name));                      // 4
+    success = success && writeExact(file, pad, 4);                                                                     // 36
+    success = success && writeExact(file, &node_lat, sizeof(node_lat));                                     // 40
+    success = success && writeExact(file, &node_lon, sizeof(node_lon));                                     // 48
+    success = success && writeExact(file, &_prefs.freq, sizeof(_prefs.freq));                               // 56
+    success = success && writeExact(file, &_prefs.sf, sizeof(_prefs.sf));                                   // 60
+    success = success && writeExact(file, &_prefs.cr, sizeof(_prefs.cr));                                   // 61
+    success = success && writeExact(file, &_prefs.client_repeat, sizeof(_prefs.client_repeat));             // 62
+    success = success && writeExact(file, &_prefs.manual_add_contacts, sizeof(_prefs.manual_add_contacts)); // 63
+    success = success && writeExact(file, &_prefs.bw, sizeof(_prefs.bw));                                   // 64
+    success = success && writeExact(file, &_prefs.tx_power_dbm, sizeof(_prefs.tx_power_dbm));               // 68
+    success = success && writeExact(file, &_prefs.telemetry_mode_base, sizeof(_prefs.telemetry_mode_base)); // 69
+    success = success && writeExact(file, &_prefs.telemetry_mode_loc, sizeof(_prefs.telemetry_mode_loc));   // 70
+    success = success && writeExact(file, &_prefs.telemetry_mode_env, sizeof(_prefs.telemetry_mode_env));   // 71
+    success = success && writeExact(file, &_prefs.rx_delay_base, sizeof(_prefs.rx_delay_base));             // 72
+    success = success && writeExact(file, &_prefs.advert_loc_policy, sizeof(_prefs.advert_loc_policy));     // 76
+    success = success && writeExact(file, &_prefs.multi_acks, sizeof(_prefs.multi_acks));                   // 77
+    success = success && writeExact(file, &_prefs.path_hash_mode, sizeof(_prefs.path_hash_mode));           // 78
+    success = success && writeExact(file, pad, 1);                                                                     // 79
+    success = success && writeExact(file, &_prefs.ble_pin, sizeof(_prefs.ble_pin));                         // 80
+    success = success && writeExact(file, &_prefs.buzzer_quiet, sizeof(_prefs.buzzer_quiet));               // 84
+    success = success && writeExact(file, &_prefs.gps_enabled, sizeof(_prefs.gps_enabled));                 // 85
+    success = success && writeExact(file, &_prefs.gps_interval, sizeof(_prefs.gps_interval));               // 86
+    success = success && writeExact(file, &_prefs.autoadd_config, sizeof(_prefs.autoadd_config));           // 87
+    success = success && writeExact(file, &_prefs.autoadd_max_hops, sizeof(_prefs.autoadd_max_hops));       // 88
+    success = success && writeExact(file, &_prefs.rx_boosted_gain, sizeof(_prefs.rx_boosted_gain)); // 89
 
     file.close();
+    if (!success) {
+      _fs->remove("/new_prefs");
+      MESH_DEBUG_PRINTLN("DataStore::savePrefs(): failed to write /new_prefs");
+    }
   }
 }
 
@@ -558,11 +583,11 @@ bool DataStore::putBlobByKey(const uint8_t key[], int key_len, const uint8_t src
     tmp.len = len;
     tmp.timestamp = _clock->getCurrentTime();
 
-    file.seek(found_pos);
-    file.write((uint8_t *) &tmp, sizeof(tmp));
+    bool success = file.seek(found_pos);
+    success = success && file.write((uint8_t *) &tmp, sizeof(tmp)) == sizeof(tmp);
 
     file.close();
-    return true;
+    return success;
   }
   return false; // error
 }
