@@ -30,6 +30,11 @@ static bool writeExact(File& file, const void* src, size_t len) {
   return file.write((const uint8_t*)src, len) == len;
 }
 
+static float normalizeRxDelayBase(float value) {
+  if (value <= 0.0f) return 0.0f;
+  return value < 1.0f ? 1.0f : value;
+}
+
 void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   if (fs->exists("/com_prefs")) {
     loadPrefsInt(fs, "/com_prefs");   // new filename
@@ -101,7 +106,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     }
 
     // sanitise bad pref values
-    loaded.rx_delay_base = constrain(loaded.rx_delay_base, 0, 20.0f);
+    loaded.rx_delay_base = normalizeRxDelayBase(constrain(loaded.rx_delay_base, 0, 20.0f));
     loaded.tx_delay_factor = constrain(loaded.tx_delay_factor, 0, 2.0f);
     loaded.direct_tx_delay_factor = constrain(loaded.direct_tx_delay_factor, 0, 2.0f);
     loaded.airtime_factor = constrain(loaded.airtime_factor, 0, 9.0f);
@@ -571,12 +576,12 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
         strcpy(reply, "OK");
       } else if (memcmp(config, "rxdelay ", 8) == 0) {
         float db = atof(&config[8]);
-        if (db >= 0) {
+        if (db == 0.0f || db >= 1.0f) {
           _prefs->rx_delay_base = db;
           savePrefs();
           strcpy(reply, "OK");
         } else {
-          strcpy(reply, "Error, cannot be negative");
+          strcpy(reply, "Error, must be 0 or >= 1");
         }
       } else if (memcmp(config, "txdelay ", 8) == 0) {
         float f = atof(&config[8]);

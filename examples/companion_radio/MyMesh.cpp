@@ -268,12 +268,14 @@ float MyMesh::getAirtimeBudgetFactor() const {
 }
 
 int MyMesh::getInterferenceThreshold() const {
-  return 0; // disabled for now, until currentRSSI() problem is resolved
+  return _prefs.interference_threshold;
 }
 
 int MyMesh::calcRxDelay(float score, uint32_t air_time) const {
-  if (_prefs.rx_delay_base <= 0.0f) return 0;
-  return (int)((pow(_prefs.rx_delay_base, 0.85f - score) - 1.0) * air_time);
+  float base = _prefs.rx_delay_base;
+  if (base <= 0.0f) return 0;
+  if (base < 1.0f) base = 1.0f;
+  return (int)((pow(base, 0.85f - score) - 1.0) * air_time);
 }
 
 uint32_t MyMesh::getRetransmitDelay(const mesh::Packet *packet) {
@@ -830,6 +832,7 @@ MyMesh::MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMe
   // defaults
   memset(&_prefs, 0, sizeof(_prefs));
   _prefs.airtime_factor = 1.0;
+  _prefs.interference_threshold = 0;
   strcpy(_prefs.node_name, "NONAME");
   _prefs.freq = LORA_FREQ;
   _prefs.sf = LORA_SF;
@@ -876,6 +879,9 @@ void MyMesh::begin(bool has_display) {
 
   // sanitise bad pref values
   _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
+  if (_prefs.rx_delay_base > 0.0f && _prefs.rx_delay_base < 1.0f) {
+    _prefs.rx_delay_base = 1.0f;
+  }
   _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
   _prefs.freq = constrain(_prefs.freq, 400.0f, 2500.0f);
   _prefs.bw = constrain(_prefs.bw, 7.8f, 500.0f);
@@ -1321,6 +1327,9 @@ void MyMesh::handleCmdFrame(size_t len) {
     memcpy(&af, &cmd_frame[i], 4);
     i += 4;
     _prefs.rx_delay_base = ((float)rx) / 1000.0f;
+    if (_prefs.rx_delay_base > 0.0f && _prefs.rx_delay_base < 1.0f) {
+      _prefs.rx_delay_base = 1.0f;
+    }
     _prefs.airtime_factor = ((float)af) / 1000.0f;
     savePrefs();
     writeOKFrame();
