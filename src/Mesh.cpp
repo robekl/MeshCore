@@ -112,6 +112,9 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
       if (pkt->getPayloadType() == PAYLOAD_TYPE_MULTIPART) {
         return forwardMultipartDirect(pkt);
       } else if (pkt->getPayloadType() == PAYLOAD_TYPE_ACK) {
+        if (!hasPayloadBytes(pkt, 4)) {
+          return ACTION_RELEASE;
+        }
         if (!_tables->hasSeen(pkt)) {  // don't retransmit!
           removeSelfFromPath(pkt);
           routeDirectRecvAcks(pkt, 0);

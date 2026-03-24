@@ -42,6 +42,7 @@ public:
 
   bool hasSeen(const mesh::Packet* packet) override {
     if (packet->getPayloadType() == PAYLOAD_TYPE_ACK) {
+      if (packet->payload_len < 4) return false;
       uint32_t ack;
       memcpy(&ack, packet->payload, 4);
       for (int i = 0; i < MAX_PACKET_ACKS; i++) {
@@ -82,6 +83,7 @@ public:
 
   void clear(const mesh::Packet* packet) override {
     if (packet->getPayloadType() == PAYLOAD_TYPE_ACK) {
+      if (packet->payload_len < 4) return;
       uint32_t ack;
       memcpy(&ack, packet->payload, 4);
       for (int i = 0; i < MAX_PACKET_ACKS; i++) {
