@@ -96,13 +96,7 @@ void Dispatcher::loop() {
         tx_budget_ms -= t;
       }
 
-      if (tx_budget_ms < MIN_TX_BUDGET_RESERVE_MS) {
-        float duty_cycle = 1.0f / (1.0f + getAirtimeBudgetFactor());
-        unsigned long needed = MIN_TX_BUDGET_RESERVE_MS - tx_budget_ms;
-        next_tx_time = futureMillis((unsigned long)(needed / duty_cycle));
-      } else {
-        next_tx_time = _ms->getMillis();
-      }
+      ensureTxDutyCycle(2 + outbound->getPathByteLen() + outbound->payload_len);
 
       _radio->onSendFinished();
       logTx(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
@@ -295,9 +289,9 @@ void Dispatcher::checkSend() {
   updateTxBudget();
   
   uint32_t est_airtime = _radio->getEstAirtimeFor(MAX_TRANS_UNIT);
-  if (tx_budget_ms < est_airtime / MIN_TX_BUDGET_AIRTIME_DIV) {
+  if (tx_budget_ms < MAX_TX_AIRTIME_FOR_EST(est_airtime) / MIN_TX_BUDGET_AIRTIME_DIV) {
     float duty_cycle = 1.0f / (1.0f + getAirtimeBudgetFactor());
-    unsigned long needed = est_airtime / MIN_TX_BUDGET_AIRTIME_DIV - tx_budget_ms;
+    unsigned long needed = MAX_TX_AIRTIME_FOR_EST(est_airtime) / MIN_TX_BUDGET_AIRTIME_DIV - tx_budget_ms;
     next_tx_time = futureMillis((unsigned long)(needed / duty_cycle));
     return;
   }
@@ -341,7 +335,7 @@ void Dispatcher::checkSend() {
     } else {
       memcpy(&raw[len], outbound->payload, outbound->payload_len); len += outbound->payload_len;
 
-      uint32_t max_airtime = _radio->getEstAirtimeFor(len)*3/2;
+      uint32_t max_airtime = MAX_TX_AIRTIME_FOR_EST(_radio->getEstAirtimeFor(len));
       outbound_start = _ms->getMillis();
       bool success = _radio->startSendRaw(raw, len);
       if (!success) {
@@ -391,6 +385,19 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
     _mgr->free(packet);
   } else {
     _mgr->queueOutbound(packet, priority, futureMillis(delay_millis));
+  }
+}
+
+void Dispatcher::ensureTxDutyCycle(int tx_len) {
+  uint32_t est_airtime = _radio->getEstAirtimeFor(tx_len);
+  uint32_t max_airtime = MAX_TX_AIRTIME_FOR_EST(est_airtime);
+
+  if (tx_budget_ms < max_airtime + MIN_TX_BUDGET_RESERVE_MS) {
+    float duty_cycle = 1.0f / (1.0f + getAirtimeBudgetFactor());
+    unsigned long needed = (max_airtime + MIN_TX_BUDGET_RESERVE_MS) - tx_budget_ms;
+    next_tx_time = futureMillis((unsigned long)(needed / duty_cycle));
+  } else {
+    next_tx_time = _ms->getMillis();
   }
 }
 

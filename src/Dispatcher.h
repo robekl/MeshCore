@@ -105,6 +105,8 @@ typedef uint32_t  DispatcherAction;
 #define ACTION_RETRANSMIT(pri)   (((uint32_t)1 + (pri))<<24)
 #define ACTION_RETRANSMIT_DELAYED(pri, _delay)  ((((uint32_t)1 + (pri))<<24) | (_delay))
 
+#define MAX_TX_AIRTIME_FOR_EST(est_airtime)  ((est_airtime) * 3 / 2)
+
 #define ERR_EVENT_FULL              (1 << 0)
 #define ERR_EVENT_CAD_TIMEOUT       (1 << 1)
 #define ERR_EVENT_STARTRX_TIMEOUT   (1 << 2)
@@ -194,6 +196,7 @@ public:
   unsigned long futureMillis(int millis_from_now) const;
 
 private:
+  void ensureTxDutyCycle(int tx_len);
   bool tryParsePacket(Packet* pkt, const uint8_t* raw, int len);
   void checkRecv();
   void checkSend();
